@@ -8,13 +8,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -31,15 +31,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.media3.session.MediaController
 import androidx.tv.material3.Text
+import coil.compose.AsyncImage
 import com.navidrome.tv.data.AlbumDto
 import com.navidrome.tv.data.SongDto
 import com.navidrome.tv.di.ServiceLocator
 import com.navidrome.tv.ui.components.MediaCard
+import com.navidrome.tv.ui.components.SectionHeader
 import kotlinx.coroutines.delay
 
 private val ALPHABET: List<String> =
@@ -102,9 +106,23 @@ fun SearchScreen(
             }
         }
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(24.dp))
 
-        if (albums.isNotEmpty() || songs.isNotEmpty()) {
+        if (songs.isNotEmpty()) {
+            SectionHeader("Songs")
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 48.dp, vertical = 4.dp)
+            ) {
+                items(songs, key = { it.id }) { song ->
+                    SongResultCard(song, controller)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        if (albums.isNotEmpty()) {
+            SectionHeader("Albums")
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(180.dp),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -121,11 +139,52 @@ fun SearchScreen(
                     )
                 }
             }
-        } else if (query.isNotBlank()) {
+        } else if (query.isNotBlank() && songs.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("No results", color = Color.White.copy(alpha = 0.5f))
             }
         }
+    }
+}
+
+@Composable
+private fun SongResultCard(song: SongDto, controller: MediaController?) {
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val bg = if (focused) Color.White.copy(alpha = 0.15f) else Color.Transparent
+
+    Column(
+        modifier = Modifier
+            .width(180.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(bg)
+            .clickable(interactionSource = interaction, indication = null) {
+                playSongs(listOf(song), controller)
+            }
+            .padding(6.dp)
+    ) {
+        AsyncImage(
+            model = ServiceLocator.repository.coverUrl(song.coverArt, 300),
+            contentDescription = song.title,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.size(168.dp).clip(RoundedCornerShape(8.dp))
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            song.title,
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            song.artist ?: "",
+            color = Color.White.copy(alpha = 0.55f),
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

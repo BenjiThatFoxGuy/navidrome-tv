@@ -12,18 +12,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.media3.session.MediaController
 import com.navidrome.tv.data.Credentials
+import com.navidrome.tv.player.ObserveScrobbling
 import com.navidrome.tv.ui.components.TopNavBar
 import com.navidrome.tv.ui.screens.AlbumScreen
 import com.navidrome.tv.ui.screens.HomeScreen
 import com.navidrome.tv.ui.screens.LibraryScreen
 import com.navidrome.tv.ui.screens.NowPlayingScreen
 import com.navidrome.tv.ui.screens.OnboardingScreen
+import com.navidrome.tv.ui.screens.PlaylistScreen
 import com.navidrome.tv.ui.screens.SearchScreen
 
 sealed class Screen {
@@ -32,6 +35,7 @@ sealed class Screen {
     data object Library : Screen()
     data object NowPlaying : Screen()
     data class Album(val id: String, val name: String) : Screen()
+    data class Playlist(val id: String, val name: String) : Screen()
 }
 
 enum class TopTab { Home, Search, Library, NowPlaying }
@@ -47,8 +51,11 @@ fun AppRoot(
         return
     }
 
+    // Wire scrobbling once credentials + controller are both available
+    ObserveScrobbling(controller)
+
     var backStack by rememberSaveable(
-        stateSaver = androidx.compose.runtime.saveable.listSaver(
+        stateSaver = listSaver(
             save = { list -> list.map { screenToKey(it) } },
             restore = { keys -> keys.map { keyToScreen(it) } }
         )
@@ -91,11 +98,17 @@ fun AppRoot(
                 )
                 Screen.Library -> LibraryScreen(
                     onOpenAlbum = { id, name -> navigate(Screen.Album(id, name)) },
+                    onOpenPlaylist = { id, name -> navigate(Screen.Playlist(id, name)) },
                     controller = controller
                 )
                 Screen.NowPlaying -> NowPlayingScreen(controller)
                 is Screen.Album -> AlbumScreen(
                     albumId = screen.id,
+                    controller = controller,
+                    onBack = { backStack = backStack.dropLast(1) }
+                )
+                is Screen.Playlist -> PlaylistScreen(
+                    playlistId = screen.id,
                     controller = controller,
                     onBack = { backStack = backStack.dropLast(1) }
                 )
@@ -116,6 +129,7 @@ private fun screenToKey(s: Screen): String = when (s) {
     Screen.Library -> "library"
     Screen.NowPlaying -> "now"
     is Screen.Album -> "album:${s.id}:${s.name}"
+    is Screen.Playlist -> "playlist:${s.id}:${s.name}"
 }
 
 private fun keyToScreen(k: String): Screen = when {
@@ -126,6 +140,10 @@ private fun keyToScreen(k: String): Screen = when {
     k.startsWith("album:") -> {
         val parts = k.removePrefix("album:").split(":", limit = 2)
         Screen.Album(parts.getOrElse(0) { "" }, parts.getOrElse(1) { "" })
+    }
+    k.startsWith("playlist:") -> {
+        val parts = k.removePrefix("playlist:").split(":", limit = 2)
+        Screen.Playlist(parts.getOrElse(0) { "" }, parts.getOrElse(1) { "" })
     }
     else -> Screen.Home
 }

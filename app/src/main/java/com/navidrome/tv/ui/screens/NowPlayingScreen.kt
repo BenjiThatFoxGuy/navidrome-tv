@@ -1,5 +1,6 @@
 package com.navidrome.tv.ui.screens
 
+import android.graphics.drawable.BitmapDrawable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,9 +49,12 @@ import androidx.compose.ui.unit.sp
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import androidx.palette.graphics.Palette
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
+import coil.imageLoader
+import coil.request.ImageRequest
 import kotlinx.coroutines.delay
 
 @Composable
@@ -90,7 +95,30 @@ fun NowPlayingScreen(controller: MediaController?) {
     val album = meta?.albumTitle?.toString() ?: ""
     val artworkUri = meta?.artworkUri?.toString()
 
+    // ---- Palette-based dynamic tint ----
+    val context = LocalContext.current
+    var dominantColor by remember { mutableStateOf(Color(0xFF0B0B0F)) }
+    LaunchedEffect(artworkUri) {
+        val url = artworkUri ?: return@LaunchedEffect
+        runCatching {
+            val req = ImageRequest.Builder(context)
+                .data(url)
+                .allowHardware(false)
+                .build()
+            val result = context.imageLoader.execute(req)
+            val bmp = (result.drawable as? BitmapDrawable)?.bitmap
+            if (bmp != null) {
+                val palette = Palette.from(bmp).generate()
+                val colorInt = palette.getVibrantColor(
+                    palette.getDarkMutedColor(0xFF0B0B0F.toInt())
+                )
+                dominantColor = Color(colorInt)
+            }
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
+        // Layer 1: blurred artwork
         if (artworkUri != null) {
             AsyncImage(
                 model = artworkUri, contentDescription = null,
@@ -98,11 +126,21 @@ fun NowPlayingScreen(controller: MediaController?) {
                 modifier = Modifier.fillMaxSize().blur(120.dp)
             )
         }
+        // Layer 2: radial gradient from dominant color
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.radialGradient(
+                    colors = listOf(dominantColor.copy(alpha = 0.55f), Color.Transparent),
+                    radius = 1400f
+                )
+            )
+        )
+        // Layer 3: black vertical scrim
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
                     listOf(
-                        Color.Black.copy(alpha = 0.55f),
+                        Color.Black.copy(alpha = 0.5f),
                         Color.Black.copy(alpha = 0.85f),
                         Color.Black
                     )

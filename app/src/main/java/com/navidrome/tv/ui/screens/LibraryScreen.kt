@@ -49,6 +49,7 @@ private sealed class LibTab(val label: String) {
 @Composable
 fun LibraryScreen(
     onOpenAlbum: (String, String) -> Unit,
+    onOpenPlaylist: (String, String) -> Unit,
     controller: MediaController?
 ) {
     var tab by remember { mutableStateOf<LibTab>(LibTab.Albums) }
@@ -88,7 +89,7 @@ fun LibraryScreen(
             when (tab) {
                 LibTab.Albums -> AlbumGrid(albums, onOpenAlbum)
                 LibTab.Recent -> AlbumGrid(recent, onOpenAlbum)
-                LibTab.Playlists -> PlaylistGrid(playlists)
+                LibTab.Playlists -> PlaylistGrid(playlists, onOpenPlaylist)
                 LibTab.Artists -> ArtistGrid(artists)
             }
         }
@@ -147,7 +148,10 @@ private fun AlbumGrid(albums: List<AlbumDto>, onOpenAlbum: (String, String) -> U
 }
 
 @Composable
-private fun PlaylistGrid(playlists: List<PlaylistDto>) {
+private fun PlaylistGrid(
+    playlists: List<PlaylistDto>,
+    onOpenPlaylist: (String, String) -> Unit
+) {
     if (playlists.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("No playlists", color = Color.White.copy(alpha = 0.5f))
@@ -165,7 +169,7 @@ private fun PlaylistGrid(playlists: List<PlaylistDto>) {
                 title = pl.name,
                 subtitle = pl.songCount?.let { "$it songs" },
                 imageUrl = ServiceLocator.repository.coverUrl(pl.coverArt),
-                onClick = { }
+                onClick = { onOpenPlaylist(pl.id, pl.name) }
             )
         }
     }
