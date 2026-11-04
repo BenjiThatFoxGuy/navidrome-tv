@@ -1,0 +1,3 @@
+-keep class com.navidrome.tv.data.** { *; }
+-keepattributes Signature
+-keepattributes *Annotation*
